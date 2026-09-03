@@ -1,0 +1,342 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>JobGuard AI</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+
+<body>
+
+
+<!-- =========================
+     NAVBAR
+========================= -->
+
+<nav class="navbar">
+
+    <div class="brand">
+
+        <div class="brand-icon">
+            JG
+        </div>
+
+        <div class="brand-name">
+            JobGuard AI
+        </div>
+
+    </div>
+
+
+    <div class="nav-links">
+
+        <a href="/dashboard" class="nav-link">
+            Dashboard
+        </a>
+
+        <a href="/history" class="nav-link">
+            Analysis History
+        </a>
+
+    </div>
+
+</nav>
+
+
+
+<!-- =========================
+     MAIN CONTENT
+========================= -->
+
+<main class="container">
+
+
+    <!-- HERO SECTION -->
+
+    <section class="header">
+
+        <div class="badge">
+            AI-POWERED SCAM DETECTION
+        </div>
+
+        <h1>
+            Job & Internship<br>
+            Scam Analyzer
+        </h1>
+
+        <p>
+            Detect suspicious patterns in job offers using
+            Machine Learning and Natural Language Processing.
+        </p>
+
+    </section>
+
+
+
+    <!-- =========================
+         ANALYZER
+    ========================= -->
+
+    <div class="card">
+
+        <div class="input-header">
+
+            <div class="input-title">
+                Analyze a Job Offer
+            </div>
+
+            <div class="input-hint">
+                Paste the complete offer
+            </div>
+
+        </div>
+
+
+        <form method="POST">
+
+            <textarea
+                name="job_description"
+                placeholder="Paste the complete job or internship description here...
+
+Example:
+Company: ABC Technologies
+Position: Software Intern
+Salary: ₹25,000/month
+Contact: hr@example.com
+..."
+                required
+            >{{ job_description }}</textarea>
+
+
+            <button
+                type="submit"
+                class="analyze-btn"
+            >
+                Analyze Job Offer
+            </button>
+
+        </form>
+
+    </div>
+
+
+
+    <!-- =========================
+         ANALYSIS RESULT
+    ========================= -->
+
+    {% if result %}
+
+    <div class="card">
+
+
+        <!-- RESULT HEADER -->
+
+        <div class="result-header">
+
+            <h2>
+                Analysis Result
+            </h2>
+
+            <div class="result-tag">
+                AI ANALYSIS
+            </div>
+
+        </div>
+
+
+
+        <!-- CLASSIFICATION -->
+
+        <div class="status">
+
+            <div class="status-label">
+                Classification
+            </div>
+
+
+            <div
+                class="prediction prediction-badge-main"
+                data-prediction="{{ result.prediction|lower }}"
+            >
+                {{ result.prediction.upper() }}
+            </div>
+
+        </div>
+
+
+
+        <!-- =========================
+             RISK SCORE
+        ========================= -->
+
+        <div class="risk-section">
+
+            <div
+                class="risk-number risk-score"
+                data-score="{{ result.risk_score }}"
+            >
+                {{ result.risk_score }}/100
+            </div>
+
+
+            <div
+                class="risk-label risk-level"
+                data-level="{{ result.risk_level }}"
+            >
+                {{ result.risk_level }}
+            </div>
+
+
+            <div class="meter">
+
+                <div
+    class="meter-fill"
+    data-risk-score="{{ result.risk_score }}"
+></div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- =========================
+             STATISTICS
+        ========================= -->
+
+        <div class="stats">
+
+
+            <div class="stat">
+
+                <div class="stat-title">
+                    ML Confidence
+                </div>
+
+                <div class="stat-value">
+                    {{ result.confidence }}%
+                </div>
+
+            </div>
+
+
+            <div class="stat">
+
+                <div class="stat-title">
+                    Red Flags
+                </div>
+
+                <div class="stat-value">
+                    {{ result.red_flags|length }}
+                </div>
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- =========================
+             RED FLAGS
+        ========================= -->
+
+        <h3 class="flags-title">
+            Detected Red Flags
+        </h3>
+
+
+        {% if result.red_flags %}
+
+
+            {% for category, keyword in result.red_flags %}
+
+            <div class="flag">
+
+                <div class="flag-category">
+                    {{ category }}
+                </div>
+
+
+                <div class="flag-keyword">
+
+                    Detected keyword:
+
+                    <strong>
+                        {{ keyword }}
+                    </strong>
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+
+        {% else %}
+
+
+            <div class="no-flags">
+
+                No major suspicious patterns were detected.
+
+            </div>
+
+
+        {% endif %}
+
+
+
+        <!-- DISCLAIMER -->
+
+        <div class="disclaimer">
+
+            Risk analysis is an automated assessment and does not guarantee
+            that an offer is legitimate or fraudulent.
+
+        </div>
+
+
+    </div>
+
+    {% endif %}
+
+
+</main>
+
+
+
+<!-- =========================
+     FOOTER
+========================= -->
+
+<footer class="footer">
+
+    JobGuard AI — AI-Based Job & Internship Scam Risk Analyzer
+
+</footer>
+
+
+
+<!-- =========================
+     JAVASCRIPT
+========================= -->
+
+<script
+    src="{{ url_for('static', filename='script.js') }}">
+</script>
+
+
+</body>
+</html>

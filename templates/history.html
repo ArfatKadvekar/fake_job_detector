@@ -1,0 +1,787 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Scan History - JobGuard AI</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+
+        /* =====================================================
+           HISTORY PAGE
+        ===================================================== */
+
+        .history-card {
+            overflow: hidden;
+        }
+
+
+        .history-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+
+        /* =====================================================
+           SEARCH & FILTERS
+        ===================================================== */
+
+        .history-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+        }
+
+
+        .history-search {
+            flex: 1;
+            min-width: 220px;
+        }
+
+
+        .history-search input,
+        .history-filter select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 11px 13px;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            background: white;
+            color: #111827;
+            font-size: 14px;
+            outline: none;
+        }
+
+
+        .history-search input:focus,
+        .history-filter select:focus {
+            border-color: #111827;
+        }
+
+
+        .history-filter {
+            min-width: 160px;
+        }
+
+
+        .history-button {
+            padding: 11px 18px;
+            border: none;
+            border-radius: 9px;
+            background: #111827;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+
+        .history-button:hover {
+            opacity: 0.9;
+        }
+
+
+        .clear-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 11px 18px;
+            border-radius: 9px;
+            background: #f3f4f6;
+            color: #111827;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+
+        /* =====================================================
+           TABLE
+        ===================================================== */
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+
+        table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
+        }
+
+
+        thead th {
+            text-align: left;
+            padding: 13px;
+            background: #f9fafb;
+            color: #6b7280;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+
+        tbody td {
+            padding: 14px 13px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+
+        tbody tr:hover {
+            background: #fafafa;
+        }
+
+
+        /* =====================================================
+           CLICKABLE SCAN ID
+        ===================================================== */
+
+        .id-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 42px;
+            padding: 6px 10px;
+            border-radius: 20px;
+            background: #f3f4f6;
+            color: #111827;
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: 0.2s ease;
+        }
+
+
+        .id-badge:hover {
+            background: #111827;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+
+        /* =====================================================
+           JOB DESCRIPTION
+        ===================================================== */
+
+        .history-description {
+            max-width: 360px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+
+        /* =====================================================
+           PREDICTION BADGES
+        ===================================================== */
+
+        .prediction-badge {
+            display: inline-block;
+            padding: 6px 11px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+
+        .prediction-badge[data-prediction="fake"] {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+
+        .prediction-badge[data-prediction="real"] {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+
+        /* =====================================================
+           RISK BADGES
+        ===================================================== */
+
+        .risk-badge {
+            display: inline-block;
+            padding: 6px 11px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+
+        .risk-badge[data-risk="high risk"] {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+
+        .risk-badge[data-risk="medium risk"] {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+
+        .risk-badge[data-risk="low risk"] {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+
+        /* =====================================================
+           DATE
+        ===================================================== */
+
+        .date-text {
+            white-space: nowrap;
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+
+        /* =====================================================
+           EMPTY STATE
+        ===================================================== */
+
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+
+        .empty-icon {
+            font-size: 30px;
+            color: #9ca3af;
+            margin-bottom: 10px;
+        }
+
+
+        .empty h3 {
+            margin: 0 0 8px;
+        }
+
+
+        .empty p {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+
+        .back {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 11px 18px;
+            border-radius: 9px;
+            background: #111827;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+
+        .back:hover {
+            opacity: 0.9;
+        }
+
+
+        /* =====================================================
+           RESPONSIVE
+        ===================================================== */
+
+        @media (max-width: 750px) {
+
+            .history-top {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+
+            .history-controls {
+                flex-direction: column;
+            }
+
+
+            .history-search,
+            .history-filter {
+                width: 100%;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     NAVBAR
+===================================================== -->
+
+<nav class="navbar">
+
+    <div class="brand">
+
+        <div class="brand-icon">
+            JG
+        </div>
+
+        <div class="brand-name">
+            JobGuard AI
+        </div>
+
+    </div>
+
+
+    <div class="nav-links">
+
+        <a href="/" class="nav-link">
+            Analyzer
+        </a>
+
+        <a href="/dashboard" class="nav-link">
+            Dashboard
+        </a>
+
+        <a href="/history" class="nav-link">
+            Analysis History
+        </a>
+
+    </div>
+
+</nav>
+
+
+<!-- =====================================================
+     MAIN CONTENT
+===================================================== -->
+
+<main class="container">
+
+
+    <!-- PAGE HEADER -->
+
+    <section class="header">
+
+        <div class="badge">
+            ANALYSIS RECORDS
+        </div>
+
+        <h1>
+            Scan History
+        </h1>
+
+        <p>
+            Previously analyzed job and internship offers.
+        </p>
+
+    </section>
+
+
+    <!-- =================================================
+         HISTORY CARD
+    ================================================= -->
+
+    <div class="card history-card">
+
+
+        {% if scans %}
+
+
+        <div class="history-top">
+
+            <div>
+
+                <div class="input-title">
+                    Previous Scans
+                </div>
+
+                <div class="input-hint">
+                    Review your previously analyzed job offers
+                </div>
+
+            </div>
+
+
+            <div class="result-tag">
+                {{ scans|length }} SCANS
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             SEARCH & FILTER FORM
+        ================================================= -->
+
+        <form
+            method="GET"
+            action="{{ url_for('history') }}"
+            class="history-controls"
+        >
+
+
+            <div class="history-search">
+
+                <input
+                    type="text"
+                    name="search"
+                    placeholder="Search job descriptions..."
+                    value="{{ search_text }}"
+                >
+
+            </div>
+
+
+            <div class="history-filter">
+
+                <select name="prediction">
+
+                    <option
+                        value="ALL"
+                        {% if prediction_filter == "ALL" %}
+                            selected
+                        {% endif %}
+                    >
+                        All Predictions
+                    </option>
+
+
+                    <option
+                        value="REAL"
+                        {% if prediction_filter == "REAL" %}
+                            selected
+                        {% endif %}
+                    >
+                        Real
+                    </option>
+
+
+                    <option
+                        value="FAKE"
+                        {% if prediction_filter == "FAKE" %}
+                            selected
+                        {% endif %}
+                    >
+                        Fake
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="history-filter">
+
+                <select name="risk">
+
+                    <option
+                        value="ALL"
+                        {% if risk_filter == "ALL" %}
+                            selected
+                        {% endif %}
+                    >
+                        All Risk Levels
+                    </option>
+
+
+                    <option
+                        value="LOW RISK"
+                        {% if risk_filter == "LOW RISK" %}
+                            selected
+                        {% endif %}
+                    >
+                        Low Risk
+                    </option>
+
+
+                    <option
+                        value="MEDIUM RISK"
+                        {% if risk_filter == "MEDIUM RISK" %}
+                            selected
+                        {% endif %}
+                    >
+                        Medium Risk
+                    </option>
+
+
+                    <option
+                        value="HIGH RISK"
+                        {% if risk_filter == "HIGH RISK" %}
+                            selected
+                        {% endif %}
+                    >
+                        High Risk
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="history-button"
+            >
+                Search
+            </button>
+
+
+            <a
+                href="{{ url_for('history') }}"
+                class="clear-button"
+            >
+                Clear
+            </a>
+
+
+        </form>
+
+
+        <!-- =================================================
+             HISTORY TABLE
+        ================================================= -->
+
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>ID</th>
+
+                        <th>
+                            Job Description
+                        </th>
+
+                        <th>
+                            Prediction
+                        </th>
+
+                        <th>
+                            Confidence
+                        </th>
+
+                        <th>
+                            Risk Score
+                        </th>
+
+                        <th>
+                            Risk Level
+                        </th>
+
+                        <th>
+                            Date & Time
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+
+                {% for scan in scans %}
+
+                <tr>
+
+
+                    <!-- =====================================
+                         CLICKABLE SCAN ID
+                    ====================================== -->
+
+                    <td>
+
+                        <a
+                            href="{{ url_for('scan_details', scan_id=scan['id']) }}"
+                            class="id-badge"
+                            title="View scan details"
+                        >
+                            #{{ scan["id"] }}
+                        </a>
+
+                    </td>
+
+
+                    <!-- JOB DESCRIPTION -->
+
+                    <td>
+
+                        <div class="history-description">
+
+                            {{ scan["job_description"] }}
+
+                        </div>
+
+                    </td>
+
+
+                    <!-- PREDICTION -->
+
+                    <td>
+
+                        <span
+                            class="prediction-badge"
+                            data-prediction="{{ scan['prediction']|lower }}"
+                        >
+                            {{ scan["prediction"].upper() }}
+                        </span>
+
+                    </td>
+
+
+                    <!-- CONFIDENCE -->
+
+                    <td>
+
+                        <strong>
+                            {{ scan["confidence"] }}%
+                        </strong>
+
+                    </td>
+
+
+                    <!-- RISK SCORE -->
+
+                    <td>
+
+                        <strong>
+                            {{ scan["risk_score"] }}/100
+                        </strong>
+
+                    </td>
+
+
+                    <!-- RISK LEVEL -->
+
+                    <td>
+
+                        <span
+                            class="risk-badge"
+                            data-risk="{{ scan['risk_level']|lower }}"
+                        >
+                            {{ scan["risk_level"] }}
+                        </span>
+
+                    </td>
+
+
+                    <!-- DATE -->
+
+                    <td>
+
+                        <span class="date-text">
+                            {{ scan["scan_time"] }}
+                        </span>
+
+                    </td>
+
+
+                </tr>
+
+                {% endfor %}
+
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        {% else %}
+
+
+        <!-- =================================================
+             EMPTY STATE
+        ================================================= -->
+
+        <div class="empty">
+
+            <div class="empty-icon">
+                —
+            </div>
+
+            <h3>
+                No scans found
+            </h3>
+
+            <p>
+                No analysis records match your current search or filters.
+            </p>
+
+
+            <a
+                href="/"
+                class="back"
+            >
+                Analyze a Job
+            </a>
+
+        </div>
+
+
+        {% endif %}
+
+
+    </div>
+
+
+    <!-- BACK BUTTON -->
+
+    {% if scans %}
+
+    <a
+        href="/"
+        class="back"
+    >
+        ← Analyze Another Job
+    </a>
+
+    {% endif %}
+
+
+</main>
+
+
+<!-- =====================================================
+     FOOTER
+===================================================== -->
+
+<footer class="footer">
+
+    JobGuard AI — AI-Based Job & Internship Scam Risk Analyzer
+
+</footer>
+
+
+</body>
+
+</html>

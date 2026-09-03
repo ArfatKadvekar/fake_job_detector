@@ -1,0 +1,857 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dashboard - JobGuard AI</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 22px;
+            margin-bottom: 25px;
+        }
+
+        .analytics-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 25px;
+        }
+
+        .analytics-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .analytics-subtitle {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 25px;
+        }
+
+        .chart-row {
+            margin-bottom: 22px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .chart-label {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .chart-value {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .chart-track {
+            width: 100%;
+            height: 12px;
+            background: #eef0f4;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .chart-fill {
+            height: 100%;
+            width: 0;
+            border-radius: 20px;
+            transition: width 0.5s ease;
+        }
+
+        .fake-fill {
+            background: #dc2626;
+        }
+
+        .real-fill {
+            background: #16a34a;
+        }
+
+        .high-fill {
+            background: #dc2626;
+        }
+
+        .medium-fill {
+            background: #f59e0b;
+        }
+
+        .low-fill {
+            background: #16a34a;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 35px 10px;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .recent-table {
+            overflow-x: auto;
+        }
+
+        .recent-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .recent-table th {
+            text-align: left;
+            padding: 13px;
+            background: #f9fafb;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .recent-table td {
+            padding: 14px 13px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+
+        .dashboard-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .dashboard-fake {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .dashboard-real {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .dashboard-high {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .dashboard-medium {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .dashboard-low {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        @media (max-width: 850px) {
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- =========================
+     NAVBAR
+========================= -->
+
+<nav class="navbar">
+
+    <div class="brand">
+
+        <div class="brand-icon">
+            JG
+        </div>
+
+        <div class="brand-name">
+            JobGuard AI
+        </div>
+
+    </div>
+
+
+    <div class="nav-links">
+
+        <a href="/" class="nav-link">
+            Analyzer
+        </a>
+
+        <a href="/dashboard" class="nav-link">
+            Dashboard
+        </a>
+
+        <a href="/history" class="nav-link">
+            Analysis History
+        </a>
+
+    </div>
+
+</nav>
+
+
+
+<!-- =========================
+     MAIN CONTENT
+========================= -->
+
+<main class="container">
+
+
+    <section class="header">
+
+        <div class="badge">
+            ANALYTICS & INSIGHTS
+        </div>
+
+        <h1>
+            Dashboard
+        </h1>
+
+        <p>
+            Monitor job scam detection activity and analyze
+            risk patterns across previous scans.
+        </p>
+
+    </section>
+
+
+
+    <!-- =========================
+         MAIN STATISTICS
+    ========================= -->
+
+    <div class="stats-grid">
+
+
+        <div class="stat-card">
+
+            <div class="stat-label">
+                Total Scans
+            </div>
+
+            <div class="stat-value blue">
+                {{ stats.total_scans }}
+            </div>
+
+            <div class="stat-description">
+                Jobs analyzed
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-label">
+                Fake Jobs
+            </div>
+
+            <div class="stat-value fake">
+                {{ stats.fake_jobs }}
+            </div>
+
+            <div class="stat-description">
+                Potential scams detected
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-label">
+                Real Jobs
+            </div>
+
+            <div class="stat-value real">
+                {{ stats.real_jobs }}
+            </div>
+
+            <div class="stat-description">
+                Classified as legitimate
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-label">
+                High Risk
+            </div>
+
+            <div class="stat-value risk">
+                {{ stats.high_risk }}
+            </div>
+
+            <div class="stat-description">
+                High-risk listings
+            </div>
+
+        </div>
+
+
+    </div>
+
+
+
+    <!-- =========================
+         CLASSIFICATION + RISK
+    ========================= -->
+
+    <div class="dashboard-grid">
+
+
+        <!-- CLASSIFICATION -->
+
+        <section class="analytics-card">
+
+            <div class="analytics-title">
+                Classification Distribution
+            </div>
+
+            <div class="analytics-subtitle">
+                Real vs fake job classifications
+            </div>
+
+
+            {% if stats.total_scans > 0 %}
+
+                {% set fake_percent =
+                    ((stats.fake_jobs / stats.total_scans) * 100)
+                    |round(1)
+                %}
+
+                {% set real_percent =
+                    ((stats.real_jobs / stats.total_scans) * 100)
+                    |round(1)
+                %}
+
+
+                <div class="chart-row">
+
+                    <div class="chart-header">
+
+                        <span class="chart-label">
+                            Fake Jobs
+                        </span>
+
+                        <span class="chart-value fake">
+                            {{ stats.fake_jobs }} ({{ fake_percent }}%)
+                        </span>
+
+                    </div>
+
+
+                    <div class="chart-track">
+
+                        <div
+                            class="chart-fill fake-fill"
+                            data-chart-width="{{ fake_percent }}"
+                        ></div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="chart-row">
+
+                    <div class="chart-header">
+
+                        <span class="chart-label">
+                            Real Jobs
+                        </span>
+
+                        <span class="chart-value real">
+                            {{ stats.real_jobs }} ({{ real_percent }}%)
+                        </span>
+
+                    </div>
+
+
+                    <div class="chart-track">
+
+                        <div
+                            class="chart-fill real-fill"
+                            data-chart-width="{{ real_percent }}"
+                        ></div>
+
+                    </div>
+
+                </div>
+
+
+            {% else %}
+
+                <div class="no-data">
+                    Analyze some job offers to see classification data.
+                </div>
+
+            {% endif %}
+
+        </section>
+
+
+
+        <!-- RISK DISTRIBUTION -->
+
+        <section class="analytics-card">
+
+            <div class="analytics-title">
+                Risk Distribution
+            </div>
+
+            <div class="analytics-subtitle">
+                Distribution of detected risk levels
+            </div>
+
+
+            {% if stats.total_scans > 0 %}
+
+                {% set high_percent =
+                    ((stats.high_risk / stats.total_scans) * 100)
+                    |round(1)
+                %}
+
+                {% set medium_percent =
+                    ((stats.medium_risk / stats.total_scans) * 100)
+                    |round(1)
+                %}
+
+                {% set low_percent =
+                    ((stats.low_risk / stats.total_scans) * 100)
+                    |round(1)
+                %}
+
+
+                <div class="chart-row">
+
+                    <div class="chart-header">
+
+                        <span class="chart-label">
+                            High Risk
+                        </span>
+
+                        <span class="chart-value fake">
+                            {{ stats.high_risk }} ({{ high_percent }}%)
+                        </span>
+
+                    </div>
+
+
+                    <div class="chart-track">
+
+                        <div
+                            class="chart-fill high-fill"
+                            data-chart-width="{{ high_percent }}"
+                        ></div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="chart-row">
+
+                    <div class="chart-header">
+
+                        <span class="chart-label">
+                            Medium Risk
+                        </span>
+
+                        <span class="chart-value risk">
+                            {{ stats.medium_risk }} ({{ medium_percent }}%)
+                        </span>
+
+                    </div>
+
+
+                    <div class="chart-track">
+
+                        <div
+                            class="chart-fill medium-fill"
+                            data-chart-width="{{ medium_percent }}"
+                        ></div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="chart-row">
+
+                    <div class="chart-header">
+
+                        <span class="chart-label">
+                            Low Risk
+                        </span>
+
+                        <span class="chart-value real">
+                            {{ stats.low_risk }} ({{ low_percent }}%)
+                        </span>
+
+                    </div>
+
+
+                    <div class="chart-track">
+
+                        <div
+                            class="chart-fill low-fill"
+                            data-chart-width="{{ low_percent }}"
+                        ></div>
+
+                    </div>
+
+                </div>
+
+
+            {% else %}
+
+                <div class="no-data">
+                    Risk data will appear after analyzing job offers.
+                </div>
+
+            {% endif %}
+
+        </section>
+
+
+    </div>
+
+
+
+    <!-- =========================
+         MODEL PERFORMANCE
+    ========================= -->
+
+    <div class="dashboard-grid">
+
+
+        <section class="analytics-card">
+
+            <div class="analytics-title">
+                Model Performance
+            </div>
+
+            <div class="analytics-subtitle">
+                Overall prediction statistics
+            </div>
+
+
+            <div class="chart-row">
+
+                <div class="chart-header">
+
+                    <span class="chart-label">
+                        Average ML Confidence
+                    </span>
+
+                    <span class="chart-value blue">
+                        {{ stats.average_confidence }}%
+                    </span>
+
+                </div>
+
+
+                <div class="chart-track">
+
+                    <div
+                        class="chart-fill real-fill"
+                        data-chart-width="{{ stats.average_confidence }}"
+                    ></div>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="chart-row">
+
+                <div class="chart-header">
+
+                    <span class="chart-label">
+                        Average Risk Score
+                    </span>
+
+                    <span class="chart-value risk">
+                        {{ stats.average_risk }}/100
+                    </span>
+
+                </div>
+
+
+                <div class="chart-track">
+
+                    <div
+                        class="chart-fill medium-fill"
+                        data-chart-width="{{ stats.average_risk }}"
+                    ></div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- DETECTION SUMMARY -->
+
+        <section class="analytics-card">
+
+            <div class="analytics-title">
+                Detection Summary
+            </div>
+
+            <div class="analytics-subtitle">
+                Overall scam detection rate
+            </div>
+
+
+            {% if stats.total_scans > 0 %}
+
+                {% set detection_rate =
+                    ((stats.fake_jobs / stats.total_scans) * 100)
+                    |round(1)
+                %}
+
+            {% else %}
+
+                {% set detection_rate = 0 %}
+
+            {% endif %}
+
+
+            <div class="stat-value fake">
+                {{ detection_rate }}%
+            </div>
+
+
+            <div class="stat-description">
+                Of all analyzed listings were classified as potentially fake.
+            </div>
+
+        </section>
+
+
+    </div>
+
+
+
+    <!-- =========================
+         RECENT SCANS
+    ========================= -->
+
+    <section class="analytics-card">
+
+        <div class="analytics-title">
+            Recent Scans
+        </div>
+
+        <div class="analytics-subtitle">
+            Latest five analyzed job offers
+        </div>
+
+
+        {% if stats.latest_scans %}
+
+
+        <div class="recent-table">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>ID</th>
+                        <th>Prediction</th>
+                        <th>Confidence</th>
+                        <th>Risk Score</th>
+                        <th>Risk Level</th>
+                        <th>Date & Time</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+
+                {% for scan in stats.latest_scans %}
+
+                <tr>
+
+                    <td>
+                        #{{ scan["id"] }}
+                    </td>
+
+
+                    <td>
+
+                        {% if scan["prediction"]|upper == "FAKE" %}
+
+                            <span class="dashboard-badge dashboard-fake">
+                                FAKE
+                            </span>
+
+                        {% else %}
+
+                            <span class="dashboard-badge dashboard-real">
+                                REAL
+                            </span>
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <td>
+                        {{ scan["confidence"] }}%
+                    </td>
+
+
+                    <td>
+                        {{ scan["risk_score"] }}/100
+                    </td>
+
+
+                    <td>
+
+                        {% if scan["risk_level"]|upper == "HIGH RISK" %}
+
+                            <span class="dashboard-badge dashboard-high">
+                                HIGH RISK
+                            </span>
+
+                        {% elif scan["risk_level"]|upper == "MEDIUM RISK" %}
+
+                            <span class="dashboard-badge dashboard-medium">
+                                MEDIUM RISK
+                            </span>
+
+                        {% else %}
+
+                            <span class="dashboard-badge dashboard-low">
+                                LOW RISK
+                            </span>
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <td>
+                        {{ scan["scan_time"] }}
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        {% else %}
+
+            <div class="no-data">
+                No scans available yet.
+            </div>
+
+        {% endif %}
+
+
+    </section>
+
+
+</main>
+
+
+
+<!-- =========================
+     FOOTER
+========================= -->
+
+<footer class="footer">
+
+    JobGuard AI — AI-Based Job & Internship Scam Risk Analyzer
+
+</footer>
+
+
+
+<!-- =========================
+     DASHBOARD JAVASCRIPT
+========================= -->
+
+<script>
+
+    const chartBars = document.querySelectorAll(
+        ".chart-fill[data-chart-width]"
+    );
+
+
+    chartBars.forEach(function (bar) {
+
+        const width = Number(
+            bar.dataset.chartWidth
+        );
+
+
+        if (!Number.isNaN(width)) {
+
+            const safeWidth = Math.min(
+                Math.max(width, 0),
+                100
+            );
+
+
+            bar.style.width =
+                safeWidth + "%";
+
+        }
+
+    });
+
+</script>
+
+
+</body>
+</html>
+
