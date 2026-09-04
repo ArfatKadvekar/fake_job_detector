@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request
 from analyzer import predict_job
 import sqlite3
@@ -7,7 +6,7 @@ import os
 
 
 # =========================================================
-# FLASK APPLICATION
+# FLASK APP CONFIGURATION
 # =========================================================
 
 app = Flask(__name__)
@@ -21,13 +20,9 @@ DATABASE = "database/history.db"
 
 def init_database():
 
-    database_folder = os.path.dirname(DATABASE)
-
-    if database_folder:
-        os.makedirs(
-            database_folder,
-            exist_ok=True
-        )
+    # Create database folder if it does not exist
+    
+    os.makedirs("database", exist_ok=True)
 
     conn = sqlite3.connect(DATABASE)
 
@@ -62,8 +57,11 @@ def save_scan(
 ):
 
     conn = sqlite3.connect(DATABASE)
-
     cursor = conn.cursor()
+
+    scan_time = datetime.now().strftime(
+        "%d-%m-%Y %H:%M:%S"
+    )
 
     cursor.execute("""
         INSERT INTO scans (
@@ -81,9 +79,7 @@ def save_scan(
         confidence,
         risk_score,
         risk_level,
-        datetime.now().strftime(
-            "%d-%m-%Y %H:%M:%S"
-        )
+        scan_time
     ))
 
     conn.commit()
@@ -95,13 +91,12 @@ def save_scan(
 # =========================================================
 
 def get_history(
-    search_text="",
-    prediction_filter="ALL",
-    risk_filter="ALL"
+    search="",
+    prediction_filter="",
+    risk_filter=""
 ):
 
     conn = sqlite3.connect(DATABASE)
-
     conn.row_factory = sqlite3.Row
 
     cursor = conn.cursor()
@@ -109,63 +104,52 @@ def get_history(
     query = """
         SELECT *
         FROM scans
-        WHERE 1 = 1
+        WHERE 1=1
     """
 
-    parameters = []
-
+    params = []
 
     # -----------------------------------------------------
-    # SEARCH
+    # SEARCH FILTER
     # -----------------------------------------------------
 
-    if search_text.strip():
+    if search:
 
         query += """
-            AND LOWER(job_description) LIKE ?
+            AND job_description LIKE ?
         """
 
-        parameters.append(
-            "%" + search_text.strip().lower() + "%"
+        params.append(
+            "%" + search + "%"
         )
-
 
     # -----------------------------------------------------
     # PREDICTION FILTER
     # -----------------------------------------------------
 
-    if prediction_filter in [
-        "REAL",
-        "FAKE"
-    ]:
+    if prediction_filter:
 
         query += """
-            AND UPPER(prediction) = ?
+            AND UPPER(prediction) = UPPER(?)
         """
 
-        parameters.append(
+        params.append(
             prediction_filter
         )
-
 
     # -----------------------------------------------------
     # RISK FILTER
     # -----------------------------------------------------
 
-    if risk_filter in [
-        "LOW RISK",
-        "MEDIUM RISK",
-        "HIGH RISK"
-    ]:
+    if risk_filter:
 
         query += """
-            AND UPPER(risk_level) = ?
+            AND UPPER(risk_level) = UPPER(?)
         """
 
-        parameters.append(
+        params.append(
             risk_filter
         )
-
 
     # -----------------------------------------------------
     # ORDER
@@ -175,17 +159,16 @@ def get_history(
         ORDER BY id DESC
     """
 
-
     cursor.execute(
         query,
-        parameters
+        params
     )
 
-    scans = cursor.fetchall()
+    history = cursor.fetchall()
 
     conn.close()
 
-    return scans
+    return history
 
 
 # =========================================================
@@ -196,8 +179,12 @@ def get_dashboard_stats():
 
     conn = sqlite3.connect(DATABASE)
 
-    cursor = conn.cursor()
+    # IMPORTANT:
+    # Allows dashboard.html to access database rows
+    # using scan["id"], scan["prediction"], etc.
+    conn.row_factory = sqlite3.Row
 
+    cursor = conn.cursor()
 
     # -----------------------------------------------------
     # TOTAL SCANS
@@ -209,7 +196,6 @@ def get_dashboard_stats():
     """)
 
     total_scans = cursor.fetchone()[0]
-
 
     # -----------------------------------------------------
     # FAKE JOBS
@@ -223,7 +209,6 @@ def get_dashboard_stats():
 
     fake_jobs = cursor.fetchone()[0]
 
-
     # -----------------------------------------------------
     # REAL JOBS
     # -----------------------------------------------------
@@ -235,7 +220,6 @@ def get_dashboard_stats():
     """)
 
     real_jobs = cursor.fetchone()[0]
-
 
     # -----------------------------------------------------
     # HIGH RISK
@@ -249,7 +233,6 @@ def get_dashboard_stats():
 
     high_risk = cursor.fetchone()[0]
 
-
     # -----------------------------------------------------
     # MEDIUM RISK
     # -----------------------------------------------------
@@ -261,7 +244,6 @@ def get_dashboard_stats():
     """)
 
     medium_risk = cursor.fetchone()[0]
-
 
     # -----------------------------------------------------
     # LOW RISK
@@ -275,9 +257,8 @@ def get_dashboard_stats():
 
     low_risk = cursor.fetchone()[0]
 
-
     # -----------------------------------------------------
-    # AVERAGE RISK
+    # AVERAGE RISK SCORE
     # -----------------------------------------------------
 
     cursor.execute("""
@@ -289,7 +270,6 @@ def get_dashboard_stats():
 
     if average_risk is None:
         average_risk = 0
-
 
     # -----------------------------------------------------
     # AVERAGE ML CONFIDENCE
@@ -304,7 +284,6 @@ def get_dashboard_stats():
 
     if average_confidence is None:
         average_confidence = 0
-
 
     # -----------------------------------------------------
     # LATEST FIVE SCANS
@@ -321,22 +300,34 @@ def get_dashboard_stats():
 
     conn.close()
 
+    # -----------------------------------------------------
+    # RETURN DASHBOARD DATA
+    # -----------------------------------------------------
 
     return {
+
         "total_scans": total_scans,
+
         "fake_jobs": fake_jobs,
+
         "real_jobs": real_jobs,
+
         "high_risk": high_risk,
+
         "medium_risk": medium_risk,
+
         "low_risk": low_risk,
+
         "average_risk": round(
             average_risk,
             2
         ),
+
         "average_confidence": round(
             average_confidence,
             2
         ),
+
         "latest_scans": latest_scans
     }
 
@@ -353,184 +344,168 @@ def home():
 
     result = None
 
-    job_description = ""
-
-
     if request.method == "POST":
 
         job_description = request.form.get(
             "job_description",
             ""
-        )
+        ).strip()
 
+        # -------------------------------------------------
+        # EMPTY INPUT CHECK
+        # -------------------------------------------------
 
-        if job_description.strip():
+        if not job_description:
 
-            (
-                prediction,
-                confidence,
-                red_flags,
-                risk_score,
-                risk_level
-            ) = predict_job(
+            result = {
+                "error": "Please enter a job description."
+            }
+
+            return render_template(
+                "index.html",
+                result=result
+            )
+
+        # -------------------------------------------------
+        # ANALYZE JOB
+        # -------------------------------------------------
+
+        try:
+
+            analysis = predict_job(
                 job_description
             )
 
+            # -------------------------------------------------
+            # RESULT DATA
+            # -------------------------------------------------
+
+            prediction = analysis.get(
+                "prediction",
+                "UNKNOWN"
+            )
+
+            confidence = analysis.get(
+                "confidence",
+                0
+            )
+
+            risk_score = analysis.get(
+                "risk_score",
+                0
+            )
+
+            risk_level = analysis.get(
+                "risk_level",
+                "LOW RISK"
+            )
+
+            red_flags = analysis.get(
+                "red_flags",
+                []
+            )
+
+            # -------------------------------------------------
+            # SAVE RESULT TO DATABASE
+            # -------------------------------------------------
+
+            save_scan(
+                job_description,
+                prediction,
+                confidence,
+                risk_score,
+                risk_level
+            )
+
+            # -------------------------------------------------
+            # RESULT FOR TEMPLATE
+            # -------------------------------------------------
 
             result = {
 
                 "prediction": prediction,
 
-                "confidence": round(
-                    confidence,
-                    2
-                ),
-
-                "red_flags": red_flags,
+                "confidence": confidence,
 
                 "risk_score": risk_score,
 
-                "risk_level": risk_level
+                "risk_level": risk_level,
 
+                "red_flags": red_flags
             }
 
+        except Exception as e:
 
-            # Save scan
-
-            save_scan(
-
-                job_description,
-
-                prediction,
-
-                round(
-                    confidence,
-                    2
-                ),
-
-                risk_score,
-
-                risk_level
-
-            )
-
+            result = {
+                "error": str(e)
+            }
 
     return render_template(
-
         "index.html",
-
-        result=result,
-
-        job_description=job_description
-
+        result=result
     )
 
 
 # =========================================================
-# HISTORY
+# HISTORY PAGE
 # =========================================================
 
 @app.route("/history")
 def history():
 
-    search_text = request.args.get(
+    search = request.args.get(
         "search",
         ""
-    )
-
+    ).strip()
 
     prediction_filter = request.args.get(
         "prediction",
-        "ALL"
-    ).upper()
-
+        ""
+    ).strip()
 
     risk_filter = request.args.get(
         "risk",
-        "ALL"
-    ).upper()
-
-
-    # -----------------------------------------------------
-    # VALIDATE PREDICTION FILTER
-    # -----------------------------------------------------
-
-    if prediction_filter not in [
-        "ALL",
-        "REAL",
-        "FAKE"
-    ]:
-
-        prediction_filter = "ALL"
-
-
-    # -----------------------------------------------------
-    # VALIDATE RISK FILTER
-    # -----------------------------------------------------
-
-    if risk_filter not in [
-        "ALL",
-        "LOW RISK",
-        "MEDIUM RISK",
-        "HIGH RISK"
-    ]:
-
-        risk_filter = "ALL"
-
+        ""
+    ).strip()
 
     scans = get_history(
-
-        search_text,
-
-        prediction_filter,
-
-        risk_filter
-
+        search=search,
+        prediction_filter=prediction_filter,
+        risk_filter=risk_filter
     )
-
 
     return render_template(
-
         "history.html",
-
         scans=scans,
-
-        search_text=search_text,
-
+        search=search,
         prediction_filter=prediction_filter,
-
         risk_filter=risk_filter
-
     )
 
 
 # =========================================================
-# INDIVIDUAL SCAN DETAILS
+# SCAN DETAILS
 # =========================================================
 
-@app.route("/scan/<int:scan_id>")
+@app.route(
+    "/scan/<int:scan_id>"
+)
 def scan_details(scan_id):
 
     conn = sqlite3.connect(DATABASE)
-
     conn.row_factory = sqlite3.Row
 
     cursor = conn.cursor()
-
 
     cursor.execute("""
         SELECT *
         FROM scans
         WHERE id = ?
-    """, (
-        scan_id,
-    ))
-
+    """, (scan_id,))
 
     scan = cursor.fetchone()
 
     conn.close()
-
 
     # -----------------------------------------------------
     # SCAN NOT FOUND
@@ -538,57 +513,35 @@ def scan_details(scan_id):
 
     if scan is None:
 
-        return render_template(
-
-            "scan_details.html",
-
-            scan=None,
-
-            red_flags=[]
-
-        ), 404
-
+        return "Scan not found", 404
 
     # -----------------------------------------------------
-    # GET RED FLAGS
+    # RE-ANALYZE STORED JOB DESCRIPTION
     # -----------------------------------------------------
-    #
-    # Red flags are not currently stored separately
-    # in the SQLite table.
-    #
-    # Therefore we run the analyzer again on the
-    # stored job description to retrieve them.
-    #
 
     try:
 
-        (
-            _prediction,
-            _confidence,
-            red_flags,
-            _risk_score,
-            _risk_level
-        ) = predict_job(
+        analysis = predict_job(
             scan["job_description"]
+        )
+
+        red_flags = analysis.get(
+            "red_flags",
+            []
         )
 
     except Exception:
 
         red_flags = []
 
-
     # -----------------------------------------------------
-    # RENDER DETAILS PAGE
+    # RENDER DETAILS
     # -----------------------------------------------------
 
     return render_template(
-
         "scan_details.html",
-
         scan=scan,
-
         red_flags=red_flags
-
     )
 
 
@@ -601,24 +554,22 @@ def dashboard():
 
     stats = get_dashboard_stats()
 
-
     return render_template(
-
         "dashboard.html",
-
         stats=stats
-
     )
 
 
 # =========================================================
-# APPLICATION START
+# START APPLICATION
 # =========================================================
 
 if __name__ == "__main__":
 
+    # Make sure database exists
     init_database()
 
+    # Start Flask server
     app.run(
         debug=True
     )
