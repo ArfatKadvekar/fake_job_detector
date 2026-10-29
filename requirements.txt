@@ -56,3 +56,4 @@ threadpoolctl==3.6.0
 tqdm==4.67.3
 tzdata==2025.3
 Werkzeug==3.1.8
+gunicorn
