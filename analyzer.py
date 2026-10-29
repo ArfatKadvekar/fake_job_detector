@@ -1,13 +1,25 @@
-import joblib
+import logging
 import re
+from pathlib import Path
+
+import joblib
+
+
+LOGGER = logging.getLogger(__name__)
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_DIR = BASE_DIR / "model"
 
 
 # ============================================================
 # LOAD TRAINED ML MODEL AND VECTORIZER
 # ============================================================
 
-model = joblib.load("model/model.pkl")
-vectorizer = joblib.load("model/vectorizer.pkl")
+try:
+    model = joblib.load(MODEL_DIR / "model.pkl")
+    vectorizer = joblib.load(MODEL_DIR / "vectorizer.pkl")
+except (FileNotFoundError, OSError, ValueError, ImportError) as exc:
+    LOGGER.exception("Unable to load model artifacts from %s", MODEL_DIR)
+    raise RuntimeError("Model artifacts could not be loaded.") from exc
 
 
 # ============================================================
@@ -85,6 +97,9 @@ RED_FLAGS = {
 # ============================================================
 
 def detect_red_flags(text):
+
+    if not isinstance(text, str) or not text.strip():
+        return []
 
     text = text.lower()
 
@@ -239,7 +254,7 @@ def calculate_risk(prediction, confidence, red_flags):
     # FAKE PREDICTION
     # --------------------------------------------------------
 
-    if prediction == "fake":
+    if str(prediction).lower() == "fake":
 
         risk_score += 50
 
@@ -295,30 +310,24 @@ def get_risk_level(risk_score):
 # ============================================================
 
 def predict_job(text):
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Job description must not be empty.")
 
     # --------------------------------------------------------
     # Convert text into ML features
     # --------------------------------------------------------
 
-    text_vector = vectorizer.transform([text])
-
-
-    # --------------------------------------------------------
-    # Predict REAL or FAKE
-    # --------------------------------------------------------
-
-    prediction = model.predict(text_vector)[0]
-
-
-    # --------------------------------------------------------
-    # Get prediction probabilities
-    # --------------------------------------------------------
-
-    probabilities = model.predict_proba(text_vector)[0]
+    try:
+        text_vector = vectorizer.transform([text])
+        prediction = str(model.predict(text_vector)[0]).upper()
+        probabilities = model.predict_proba(text_vector)[0]
+    except (AttributeError, TypeError, ValueError, RuntimeError) as exc:
+        LOGGER.exception("Model inference failed")
+        raise RuntimeError("Model inference failed.") from exc
 
 
     # Highest probability = confidence
-    confidence = max(probabilities) * 100
+    confidence = round(float(max(probabilities) * 100), 2)
 
 
     # --------------------------------------------------------
@@ -350,10 +359,10 @@ def predict_job(text):
     # Return all results
     # --------------------------------------------------------
 
-    return (
-        prediction,
-        confidence,
-        red_flags,
-        risk_score,
-        risk_level
-    )
+    return {
+        "prediction": prediction,
+        "confidence": confidence,
+        "red_flags": red_flags,
+        "risk_score": risk_score,
+        "risk_level": risk_level,
+    }

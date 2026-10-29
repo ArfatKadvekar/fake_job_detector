@@ -3,6 +3,7 @@ from flask import Flask, render_template, request
 from analyzer import predict_job
 import sqlite3
 from datetime import datetime
+from contextlib import closing
 import os
 import logging
 
@@ -13,11 +14,15 @@ import logging
 
 app = Flask(__name__)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
+LOGGER = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_DIR = os.path.join(BASE_DIR, "database")
-DATABASE = os.path.join(DATABASE_DIR, "history.db")
+DATABASE = os.environ.get(
+    "JOBGUARD_DATABASE_PATH",
+    os.path.join(BASE_DIR, "database", "history.db"),
+)
+DATABASE_DIR = os.path.dirname(os.path.abspath(DATABASE))
 
 
 # =========================================================
@@ -29,18 +34,19 @@ def init_database():
 
     os.makedirs(DATABASE_DIR, exist_ok=True)
 
-    with sqlite3.connect(DATABASE) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS scans (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                job_description TEXT NOT NULL,
-                prediction TEXT NOT NULL,
-                confidence REAL NOT NULL,
-                risk_score INTEGER NOT NULL,
-                risk_level TEXT NOT NULL,
-                scan_time TEXT NOT NULL
-            )
-        """)
+    with closing(sqlite3.connect(DATABASE)) as conn:
+        with conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS scans (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_description TEXT NOT NULL,
+                    prediction TEXT NOT NULL,
+                    confidence REAL NOT NULL,
+                    risk_score INTEGER NOT NULL,
+                    risk_level TEXT NOT NULL,
+                    scan_time TEXT NOT NULL
+                )
+            """)
 
 
 # IMPORTANT:
@@ -64,25 +70,26 @@ def save_scan(
 
     scan_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
-    with sqlite3.connect(DATABASE) as conn:
-        conn.execute("""
-            INSERT INTO scans (
+    with closing(sqlite3.connect(DATABASE)) as conn:
+        with conn:
+            conn.execute("""
+                INSERT INTO scans (
+                    job_description,
+                    prediction,
+                    confidence,
+                    risk_score,
+                    risk_level,
+                    scan_time
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
                 job_description,
                 prediction,
                 confidence,
                 risk_score,
                 risk_level,
                 scan_time
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            job_description,
-            prediction,
-            confidence,
-            risk_score,
-            risk_level,
-            scan_time
-        ))
+            ))
 
 
 # =========================================================
@@ -96,7 +103,7 @@ def get_history(
 ):
     """Retrieve scan history with optional filters."""
 
-    with sqlite3.connect(DATABASE) as conn:
+    with closing(sqlite3.connect(DATABASE)) as conn:
         conn.row_factory = sqlite3.Row
 
         query = """
@@ -137,7 +144,7 @@ def get_history(
 def get_dashboard_stats():
     """Calculate statistics and retrieve the latest five scans."""
 
-    with sqlite3.connect(DATABASE) as conn:
+    with closing(sqlite3.connect(DATABASE)) as conn:
         conn.row_factory = sqlite3.Row
 
         cursor = conn.cursor()
@@ -254,8 +261,7 @@ def home():
             }
 
             return render_template(
-                "index.html",
-                result=result
+                "index.html", result=result, job_description=""
             )
 
         try:
@@ -305,20 +311,28 @@ def home():
                 "red_flags": red_flags
             }
 
-        except Exception:
-            # Keep the full traceback in Render runtime logs
-            logging.exception("Job analysis or scan saving failed")
+        except (ValueError, RuntimeError):
+            LOGGER.exception("Job analysis failed")
 
             result = {
                 "error": (
                     "Unable to analyze this job description. "
-                    "Please check the server logs and try again."
+                    "Please try again with a valid job description."
+                )
+            }
+        except sqlite3.Error:
+            LOGGER.exception("Scan could not be saved")
+            result = {
+                "error": (
+                    "The analysis completed, but the result could not be saved. "
+                    "Please try again."
                 )
             }
 
     return render_template(
         "index.html",
-        result=result
+        result=result,
+        job_description=job_description if request.method == "POST" else "",
     )
 
 
@@ -333,11 +347,20 @@ def history():
     prediction_filter = request.args.get("prediction", "").strip()
     risk_filter = request.args.get("risk", "").strip()
 
-    scans = get_history(
-        search=search,
-        prediction_filter=prediction_filter,
-        risk_filter=risk_filter
-    )
+    if prediction_filter.upper() == "ALL":
+        prediction_filter = ""
+    if risk_filter.upper() == "ALL":
+        risk_filter = ""
+
+    try:
+        scans = get_history(
+            search=search,
+            prediction_filter=prediction_filter,
+            risk_filter=risk_filter
+        )
+    except sqlite3.Error:
+        LOGGER.exception("Could not retrieve scan history")
+        return "Scan history is temporarily unavailable.", 503
 
     return render_template(
         "history.html",
@@ -355,14 +378,18 @@ def history():
 @app.route("/scan/<int:scan_id>")
 def scan_details(scan_id):
 
-    with sqlite3.connect(DATABASE) as conn:
-        conn.row_factory = sqlite3.Row
+    try:
+        with closing(sqlite3.connect(DATABASE)) as conn:
+            conn.row_factory = sqlite3.Row
 
-        scan = conn.execute("""
-            SELECT *
-            FROM scans
-            WHERE id = ?
-        """, (scan_id,)).fetchone()
+            scan = conn.execute("""
+                SELECT *
+                FROM scans
+                WHERE id = ?
+            """, (scan_id,)).fetchone()
+    except sqlite3.Error:
+        LOGGER.exception("Could not retrieve scan %s", scan_id)
+        return "Scan details are temporarily unavailable.", 503
 
     # Scan not found
     if scan is None:
@@ -377,8 +404,8 @@ def scan_details(scan_id):
             []
         )
 
-    except Exception:
-        logging.exception(
+    except (ValueError, RuntimeError):
+        LOGGER.exception(
             "Could not retrieve red flags for scan %s",
             scan_id
         )
@@ -398,7 +425,11 @@ def scan_details(scan_id):
 @app.route("/dashboard")
 def dashboard():
 
-    stats = get_dashboard_stats()
+    try:
+        stats = get_dashboard_stats()
+    except sqlite3.Error:
+        LOGGER.exception("Could not retrieve dashboard statistics")
+        return "Dashboard data is temporarily unavailable.", 503
 
     return render_template(
         "dashboard.html",

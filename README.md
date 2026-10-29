@@ -117,6 +117,20 @@ Open the local Flask address shown in the terminal, usually:
 http://127.0.0.1:5000
 ```
 
+### Render deployment
+
+The application can be started on Render with:
+
+```text
+gunicorn app:app
+```
+
+The model artifacts are loaded from the repository-relative `model/` directory.
+SQLite history defaults to `database/history.db`; set
+`JOBGUARD_DATABASE_PATH` to a path on a Render persistent disk if history must
+survive restarts and redeploys. Without a persistent disk, Render's filesystem
+is ephemeral and scan history may be lost.
+
 ## Model
 
 The project uses a trained machine-learning model and text vectorizer stored in the `model/` directory.

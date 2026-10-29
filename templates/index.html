@@ -135,7 +135,13 @@ Contact: hr@example.com
          ANALYSIS RESULT
     ========================= -->
 
-    {% if result %}
+    {% if result and result.error %}
+
+    <div class="card error-card">
+        {{ result.error }}
+    </div>
+
+    {% elif result %}
 
     <div class="card">
 
